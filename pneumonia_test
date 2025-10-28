@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mouse AI Classifier</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <style>
+    body { font-family: Arial; text-align: center; padding: 20px; background: #f0f8ff; }
+    h1 { color: #2c3e50; }
+    .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    #preview { max-width: 100%; margin: 20px 0; border-radius: 10px; }
+    #result { font-size: 1.5em; margin: 20px 0; color: #27ae60; }
+    button { padding: 12px 24px; font-size: 1.1em; background: #3498db; color: white; border: none; border-radius: 8px; cursor: pointer; }
+    button:hover { background: #2980b9; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Mouse Image Classifier</h1>
+    <p>마우스 이미지를 업로드하면 AI가 유전형/상태를 예측합니다.</p>
+
+    <input type="file" id="imageUpload" accept="image/*" />
+    <br/><br/>
+    <img id="preview" src="" alt="Preview" style="display:none;"/>
+    <br/>
+    <button onclick="predict()">예측하기</button>
+    <div id="result"></div>
+  </div>
+
+  <script>
+    let model;
+    const classNames = ['Wild Type', 'Mutant', 'Sick'];  // ← 실제 클래스명으로 변경
+
+    // 모델 로드
+    async function loadModel() {
+      const status = document.getElementById('result');
+      status.innerHTML = '모델 로딩 중...';
+      model = await tf.loadGraphModel('your-model/model.json');  // ← 폴더명 확인!
+      status.innerHTML = '모델 로드 완료!';
+    }
+
+    // 이미지 업로드 & 미리보기
+    document.getElementById('imageUpload').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = document.getElementById('preview');
+          img.src = event.target.result;
+          img.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // 예측 함수
+    async function predict() {
+      const img = document.getElementById('preview');
+      if (!img.src || !model) {
+        alert('이미지를 업로드하고 모델을 로드해주세요!');
+        return;
+      }
+
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '예측 중...';
+
+      // 이미지 → Tensor
+      const tensor = tf.browser.fromPixels(img).resizeNearestNeighbor([224, 224]).toFloat();
+      const normalized = tensor.div(255.0);
+      const batch = normalized.expandDims(0);  // [1, 224, 224, 3]
+
+      // 예측
+      const prediction = await model.executeAsync(batch);
+      const scores = await prediction[0].data();
+      tf.dispose([tensor, normalized, batch, prediction]);
+
+      const maxIdx = scores.indexOf(Math.max(...scores));
+      const confidence = (scores[maxIdx] * 100).toFixed(2);
+
+      resultDiv.innerHTML = `
+        <strong>예측: ${classNames[maxIdx]}</strong><br/>
+        확신도: ${confidence}%
+      `;
+    }
+
+    // 페이지 로드 시 모델 자동 로드
+    window.onload = loadModel;
+  </script>
+</body>
+</html>
