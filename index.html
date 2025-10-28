@@ -36,7 +36,7 @@
     async function loadModel() {
       const status = document.getElementById('result');
       status.innerHTML = '모델 로딩 중...';
-      model = await tf.loadGraphModel('your-model/model.json');  // ← 폴더명 확인!
+      model = await tf.loadGraphModel('p_model/model.json');  // ← 폴더명 확인!
       status.innerHTML = '모델 로드 완료!';
     }
 
